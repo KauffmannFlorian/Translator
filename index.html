@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Traducteur Khutba</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: une colonne plein écran. Journal de traduction au centre (français en grand), saisie arabe fixée en bas. */
+:root {
+  --bg: #f1f4f1;
+  --surface: #ffffff;
+  --fg: #13201b;
+  --muted: #5a6a63;
+  --accent: #1b6b57;
+  --accent-fg: #ffffff;
+  --line: #d3dcd6;
+  --warn: #8a4b12;
+  --f-fr: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-ar: "Noto Naskh Arabic", "Geeza Pro", "Segoe UI", Tahoma, serif;
+  --f-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fr-size: 1.375rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1613; --surface: #15211d; --fg: #e7efea; --muted: #8ea39a;
+    --accent: #4cc2a1; --accent-fg: #07201a; --line: #25352f; --warn: #e0b074;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1613; --surface: #15211d; --fg: #e7efea; --muted: #8ea39a;
+  --accent: #4cc2a1; --accent-fg: #07201a; --line: #25352f; --warn: #e0b074;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 15px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px;
+  overflow-x: hidden;
+}
+.app { height: 100%; display: flex; flex-direction: column; gap: 10px; max-width: 46rem; margin: 0 auto; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+h1 { font-family: var(--f-fr); font-size: 1.15rem; font-weight: 600; margin: 0; letter-spacing: .01em; }
+h1 small { display: block; font-family: var(--f-ui); font-size: .72rem; font-weight: 500; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; }
+.tools { display: flex; gap: 6px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.chip { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; font-weight: 500; min-height: 38px; }
+.chip:focus-visible, .primary:focus-visible, .mic:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; min-height: 42px; }
+.banner { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.banner p { margin: 0; color: var(--muted); font-size: .86rem; flex: 1 1 14rem; min-width: 0; }
+.hint { color: var(--warn); font-size: .84rem; margin: 0; line-height: 1.4; }
+[hidden] { display: none !important; }
+#log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 6px 2px 10px; }
+.seg { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fr { font-family: var(--f-fr); font-size: var(--fr-size); line-height: 1.45; margin: 0; overflow-wrap: anywhere; text-wrap: pretty; }
+.fr.wait { color: var(--muted); }
+.ar { direction: rtl; text-align: right; font-family: var(--f-ar); font-size: 1.05rem; line-height: 1.8; color: var(--muted); margin: 0; overflow-wrap: anywhere; border-top: 1px solid var(--line); padding-top: 6px; }
+.seg.err .fr { color: var(--warn); font-family: var(--f-ui); font-size: .95rem; }
+.retry { align-self: flex-start; }
+.empty { margin: auto 0; display: flex; flex-direction: column; gap: 14px; color: var(--muted); }
+.empty h2 { font-family: var(--f-fr); font-size: 1.5rem; line-height: 1.25; color: var(--fg); margin: 0; font-weight: 600; text-wrap: balance; }
+.empty ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+.empty .ar-sample { direction: rtl; font-family: var(--f-ar); font-size: 1.15rem; color: var(--fg); }
+.composer { display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+textarea { flex: 1; min-width: 0; resize: none; direction: rtl; text-align: right; font-family: var(--f-ar); font-size: 1.2rem; line-height: 1.6; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; height: 5.2rem; }
+textarea::placeholder { color: var(--muted); }
+.side { display: flex; flex-direction: column; gap: 8px; }
+.mic { width: 56px; flex: 1; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.mic svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mic[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.mic[aria-pressed="true"] svg { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .mic[aria-pressed="true"] svg { animation: none; } }
+.status { font-size: .78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Traducteur Khutba<small>Arabe vers français</small></h1>
+    <div class="tools">
+      <button class="chip" id="smaller" aria-label="Réduire le texte">A−</button>
+      <button class="chip" id="bigger" aria-label="Agrandir le texte">A+</button>
+      <button class="chip" id="clear">Effacer</button>
+    </div>
+  </header>
+
+  <div class="banner" id="enableBar">
+    <p>Autorisez la traduction une fois avant le début du prêche. L'écran restera allumé.</p>
+    <button class="primary" id="enable">Activer</button>
+  </div>
+
+  <p class="hint" id="hint" hidden></p>
+
+  <main id="log" aria-live="polite">
+    <div class="empty" id="empty">
+      <h2>La traduction française apparaît ici, phrase par phrase.</h2>
+      <ol>
+        <li>Touchez le champ arabe en bas, puis le micro du clavier de votre téléphone (clavier arabe). C'est la méthode la plus fiable.</li>
+        <li>Ou touchez le micro à côté du champ, si votre navigateur le permet.</li>
+        <li>Après une courte pause, le texte part en traduction tout seul.</li>
+      </ol>
+      <div>
+        <div class="ar-sample" lang="ar">الحمد لله رب العالمين</div>
+      </div>
+      <button class="chip" id="demo" style="align-self:flex-start">Tester avec cette phrase</button>
+    </div>
+  </main>
+
+  <div class="composer">
+    <div class="status"><span id="state">Prêt</span><span>Pause de 1,5 seconde = traduction</span></div>
+    <div class="row">
+      <textarea id="input" lang="ar" dir="rtl" placeholder="اكتب أو استخدم ميكروفون لوحة المفاتيح" aria-label="Texte arabe à traduire"></textarea>
+      <div class="side">
+        <button class="mic" id="mic" aria-pressed="false" aria-label="Micro direct">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="primary" id="go">Traduire maintenant</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var log = $("log"), input = $("input"), hint = $("hint"), stateEl = $("state");
+  var sample = null, segs = [], timer = null, rec = null, listening = false, enabled = false;
+  var scale = 1;
+  try { var s = parseFloat(localStorage.getItem("khutba-scale")); if (s > 0.8 && s < 2) scale = s; } catch (e) {}
+  applyScale();
+
+  function applyScale() {
+    document.documentElement.style.setProperty("--fr-size", (1.375 * scale).toFixed(3) + "rem");
+    try { localStorage.setItem("khutba-scale", String(scale)); } catch (e) {}
+  }
+  $("bigger").onclick = function () { scale = Math.min(1.9, scale + 0.15); applyScale(); };
+  $("smaller").onclick = function () { scale = Math.max(0.85, scale - 0.15); applyScale(); };
+
+  function setState(t) { stateEl.textContent = t; }
+  function showHint(t) { hint.textContent = t; hint.hidden = !t; }
+
+  (async function () {
+    try { sample = await window.claude.use("sample"); } catch (e) { sample = null; }
+    if (!sample) {
+      showHint("La traduction automatique n'est pas disponible dans cette vue. Ouvrez la page depuis l'application Claude.");
+    }
+  })();
+
+  function keepAwake() {
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {}); } catch (e) {}
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && enabled) keepAwake(); });
+
+  $("enable").onclick = async function () {
+    keepAwake();
+    if (!sample) { showHint("La traduction automatique n'est pas disponible dans cette vue."); return; }
+    var b = $("enable"); b.disabled = true; b.textContent = "…";
+    try {
+      await sample("Réponds uniquement par le mot: prêt", { cache: false, modelTier: "quick" });
+      enabled = true; $("enableBar").hidden = true; showHint("");
+    } catch (e) {
+      b.disabled = false; b.textContent = "Activer";
+      showHint(e && e.code === "not_granted" ? "Autorisation refusée. Touchez Activer et acceptez." : "Impossible d'activer pour l'instant. Réessayez.");
+    }
+  };
+
+  function addSeg(ar) {
+    $("empty") && $("empty").remove();
+    var seg = { ar: ar, fr: "", el: null, frEl: null };
+    var el = document.createElement("div"); el.className = "seg";
+    var fr = document.createElement("p"); fr.className = "fr wait"; fr.textContent = "Traduction…";
+    var a = document.createElement("p"); a.className = "ar"; a.lang = "ar"; a.textContent = ar;
+    el.appendChild(fr); el.appendChild(a); log.appendChild(el);
+    seg.el = el; seg.frEl = fr; segs.push(seg);
+    log.scrollTop = log.scrollHeight;
+    return seg;
+  }
+
+  async function translate(seg) {
+    var idx = segs.indexOf(seg);
+    var ctx = segs.slice(Math.max(0, idx - 2), idx).map(function (x) { return x.ar; }).join(" ");
+    seg.el.classList.remove("err");
+    var old = seg.el.querySelector(".retry"); if (old) old.remove();
+    seg.frEl.className = "fr wait"; seg.frEl.textContent = "Traduction…";
+    if (!sample) { fail(seg, "Traduction indisponible dans cette vue."); return; }
+    var prompt =
+      "Tu traduis en direct le prêche (khutba) d'un imam, de l'arabe vers le français, pour un fidèle qui lit sur son téléphone.\n" +
+      "Règles: donne uniquement la traduction française, sans commentaire ni guillemets autour. Style clair et fidèle. " +
+      "Pour un verset du Coran, traduis le sens et ajoute entre parenthèses la sourate et le numéro si tu es certain. " +
+      "Garde tels quels les termes religieux usuels (Allah, salat, zakat, hadith) et traduis les formules (Bismillah = Au nom d'Allah). " +
+      "Le texte vient d'une reconnaissance vocale: corrige mentalement les erreurs évidentes.\n" +
+      (ctx ? "Contexte précédent (ne pas retraduire): " + ctx + "\n" : "") +
+      "Texte à traduire: " + seg.ar;
+    try {
+      var res = await sample(prompt, {
+        cache: false, modelTier: "quick",
+        onText: function (o) { if (o && o.text) { seg.frEl.className = "fr"; seg.frEl.textContent = o.text; log.scrollTop = log.scrollHeight; } }
+      });
+      var t = (res && res.text || "").trim();
+      seg.fr = t; seg.frEl.className = "fr"; seg.frEl.textContent = t || "(aucune traduction reçue)";
+      enabled = true; $("enableBar").hidden = true;
+      log.scrollTop = log.scrollHeight;
+    } catch (e) {
+      var m = e && e.code === "not_granted" ? "Autorisation requise. Touchez Activer en haut." :
+              e && e.code === "rate_limited" ? "Trop de demandes. Patientez un instant puis réessayez." :
+              "La traduction a échoué.";
+      if (e && e.code === "not_granted") $("enableBar").hidden = false;
+      fail(seg, m);
+    }
+  }
+  function fail(seg, msg) {
+    seg.el.classList.add("err"); seg.frEl.className = "fr"; seg.frEl.textContent = msg;
+    var b = document.createElement("button"); b.className = "chip retry"; b.textContent = "Réessayer";
+    b.onclick = function () { translate(seg); };
+    seg.el.appendChild(b);
+  }
+
+  function commit(text) {
+    text = (text || "").replace(/\s+/g, " ").trim();
+    if (!text) return;
+    translate(addSeg(text));
+  }
+  function flush() {
+    clearTimeout(timer); timer = null;
+    var t = input.value; input.value = ""; lastVal = ""; commit(t); setState(listening ? "Écoute en cours" : "Prêt");
+  }
+
+  var lastVal = "";
+  function onChange() {
+    var v = input.value;
+    if (v === lastVal) return;
+    lastVal = v;
+    clearTimeout(timer);
+    if (!v.trim()) { setState(listening ? "Écoute en cours" : "Prêt"); return; }
+    setState("Texte reçu (" + v.trim().length + " caractères)…");
+    timer = setTimeout(flush, 1500);
+  }
+  ["input", "keyup", "change", "compositionend", "paste"].forEach(function (ev) { input.addEventListener(ev, onChange); });
+  input.addEventListener("blur", function () { if (input.value.trim()) flush(); });
+  setInterval(onChange, 400);
+  $("go").onclick = flush;
+  $("demo").onclick = function () { keepAwake(); commit("الحمد لله رب العالمين"); };
+  $("clear").onclick = function () {
+    segs = []; log.innerHTML = "";
+    var p = document.createElement("p"); p.className = "fr wait"; p.textContent = "Journal effacé.";
+    log.appendChild(p);
+  };
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function setMic() { $("mic").setAttribute("aria-pressed", listening ? "true" : "false"); setState(listening ? "Écoute en cours" : "Prêt"); }
+  var micHint = "Le micro direct est bloqué dans cette vue. Touchez le champ arabe puis utilisez le micro du clavier (clavier arabe activé).";
+  $("mic").onclick = function () {
+    keepAwake();
+    if (listening) { listening = false; try { rec.stop(); } catch (e) {} setMic(); return; }
+    if (!SR) { showHint(micHint); return; }
+    try {
+      rec = new SR(); rec.lang = "ar-SA"; rec.continuous = true; rec.interimResults = true;
+      rec.onresult = function (e) {
+        var interim = "";
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          var r = e.results[i];
+          if (r.isFinal) commit(r[0].transcript); else interim += r[0].transcript;
+        }
+        input.value = interim;
+      };
+      rec.onerror = function (e) {
+        if (e.error === "no-speech" || e.error === "aborted") return;
+        listening = false; setMic(); showHint(micHint);
+      };
+      rec.onend = function () { if (listening) { try { rec.start(); } catch (e) { listening = false; setMic(); } } };
+      listening = true; showHint(""); setMic(); rec.start();
+    } catch (e) { listening = false; setMic(); showHint(micHint); }
+  };
+})();
+</script>
+</body>
+</html>
